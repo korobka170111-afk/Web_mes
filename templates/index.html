@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Главная страница
+{% endblock %}
+
+{% block body %}
+{% for i in user %}
+<div class="container">
+	<h1><b>Главная страница</b></h1>
+	<h2>Здаров {{i.name}}</h2>
+</div>
+{% endfor %}
+{% endblock %}
