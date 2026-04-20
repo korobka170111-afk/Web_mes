@@ -6,7 +6,13 @@
 {% block body %}
 <div class="container">
   <h1><b>Регистрация</b></h1>
-        <form class="needs-validation" method="POST">
+      {% if message %}
+        <div class="alert alert-danger" role="alert">
+        {{ message }}
+        </div>
+      {% endif %}
+
+  <form class="needs-validation" method="POST">
     <div class="row g-3">
         <div class="col-sm-6">
             <label for="name" class="form-label">Имя</label>
