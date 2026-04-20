@@ -11,10 +11,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db_sessions.global_init("db/blogs.db")
 db_sess = db_sessions.create_session()
+
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 
 def init_db():
-    conn = sqlite3.connect('blogs.db')
+    conn = sqlite3.connect('db/blogs.db')
     conn.execute('''
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,38 +30,38 @@ def init_db():
 
 @app.route('/messages')
 def messages():
-    conn = sqlite3.connect('blogs.db')
+    conn = sqlite3.connect('db/blogs.db')
     messages = conn.execute('SELECT sender, text, time FROM messages').fetchall()
     conn.close()
     return render_template_string('''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Сообщения из Макс</title>
-    <meta charset="utf-8">
-    <meta http-equiv="refresh" content="5">
-    <style>
-        body { font-family: Arial; margin: 20px; background: #f0f0f0; }
-        .message { background: white; margin: 10px 0; padding: 10px; border-radius: 8px; }
-        .sender { font-weight: bold; color: #007bff; }
-        .time { font-size: 12px; color: gray; }
-        .text { margin-top: 5px; }
-    </style>
-</head>
-<body>
-    <h1> Сообщения из Макс</h1>
-    <div id="messages">
-        {% for msg in messages %}
-        <div class="message">
-            <div class="sender">{{ msg[0] }}</div>
-            <div class="time">{{ msg[2] }}</div>
-            <div class="text">{{ msg[1] }}</div>
-        </div>
-        {% endfor %}
-    </div>
-</body>
-</html>
-''', messages=messages)
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Сообщения из Макс</title>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="5">
+            <style>
+                body { font-family: Arial; margin: 20px; background: #f0f0f0; }
+                .message { background: white; margin: 10px 0; padding: 10px; border-radius: 8px; }
+                .sender { font-weight: bold; color: #007bff; }
+                .time { font-size: 12px; color: gray; }
+                .text { margin-top: 5px; }
+            </style>
+        </head>
+        <body>
+            <h1> Сообщения из Макс</h1>
+            <div id="messages">
+                {% for msg in messages %}
+                <div class="message">
+                    <div class="sender">{{ msg[0] }}</div>
+                    <div class="time">{{ msg[2] }}</div>
+                    <div class="text">{{ msg[1] }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </body>
+        </html>
+        ''', messages=messages)
 
 
 @app.route('/add', methods=['POST'])
@@ -69,7 +71,7 @@ def add_message():
 
     time_now = datetime.now().strftime('%H:%M')
 
-    conn = sqlite3.connect('blogs.db')
+    conn = sqlite3.connect('db/blogs.db')
     conn.execute('INSERT INTO messages (sender, text, time) VALUES (?, ?, ?)',
                  (sender, text, time_now))
     conn.commit()
@@ -127,4 +129,4 @@ init_db()
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5050, debug=False)
