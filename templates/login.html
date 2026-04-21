@@ -7,14 +7,19 @@
 {% block body %}
 <div class="container">
 	<div class="log"><h1><b>Вход</b></h1></div>
-	<form>
+          {% if message %}
+        <div class="alert alert-danger" role="alert">
+        {{ message }}
+        </div>
+      {% endif %}
+	<form class="needs-validation" method="POST">
     <div class="form-floating">
-        <input type="email" class="form-control" id="floatingInput" placeholder="введите почту">
+        <input type="email" class="form-control" id="floatingInput" name="email" placeholder="введите почту">
         <label for="floatingInput">Email address</label>
     </div>
 
     <div class="form-floating">
-        <input type="password" class="form-control" id="floatingPassword" placeholder="Password">
+        <input type="password" class="form-control" id="floatingPassword" name="password" placeholder="Password">
         <label for="floatingPassword">Password</label>
     </div>
 

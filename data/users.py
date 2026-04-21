@@ -27,7 +27,7 @@ class Messages(SqlAlchemyBase):
                            primary_key=True, autoincrement=True)
     sender = sqlalchemy.Column(sqlalchemy.String)
     text = sqlalchemy.Column(sqlalchemy.String)
-    message_date = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
+    time = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
     user_id = sqlalchemy.Column(sqlalchemy.Integer,
                                 sqlalchemy.ForeignKey("users.id"))
 

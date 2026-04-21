@@ -8,6 +8,7 @@ from datetime import datetime
 from forms.user import RegisterForm
 from data import db_sessions
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask import session
 
 db_sessions.global_init("db/blogs.db")
 db_sess = db_sessions.create_session()
@@ -15,17 +16,6 @@ db_sess = db_sessions.create_session()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 
-def init_db():
-    conn = sqlite3.connect('db/blogs.db')
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender TEXT,
-            text TEXT,
-            time TEXT
-        )
-    ''')
-    conn.close()
 
 
 @app.route('/messages')
@@ -34,34 +24,34 @@ def messages():
     messages = conn.execute('SELECT sender, text, time FROM messages').fetchall()
     conn.close()
     return render_template_string('''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Сообщения из Макс</title>
-            <meta charset="utf-8">
-            <meta http-equiv="refresh" content="5">
-            <style>
-                body { font-family: Arial; margin: 20px; background: #f0f0f0; }
-                .message { background: white; margin: 10px 0; padding: 10px; border-radius: 8px; }
-                .sender { font-weight: bold; color: #007bff; }
-                .time { font-size: 12px; color: gray; }
-                .text { margin-top: 5px; }
-            </style>
-        </head>
-        <body>
-            <h1> Сообщения из Макс</h1>
-            <div id="messages">
-                {% for msg in messages %}
-                <div class="message">
-                    <div class="sender">{{ msg[0] }}</div>
-                    <div class="time">{{ msg[2] }}</div>
-                    <div class="text">{{ msg[1] }}</div>
-                </div>
-                {% endfor %}
-            </div>
-        </body>
-        </html>
-        ''', messages=messages)
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Сообщения из Макс</title>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="5">
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f0f0f0; }
+        .message { background: white; margin: 10px 0; padding: 10px; border-radius: 8px; }
+        .sender { font-weight: bold; color: #007bff; }
+        .time { font-size: 12px; color: gray; }
+        .text { margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1> Сообщения из Макс</h1>
+    <div id="messages">
+        {% for msg in messages %}
+        <div class="message">
+            <div class="sender">{{ msg[0] }}</div>
+            <div class="time">{{ msg[2] }}</div>
+            <div class="text">{{ msg[1] }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
+''', messages=messages)
 
 
 @app.route('/add', methods=['POST'])
@@ -91,6 +81,16 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = db_sess.query(User).filter(User.email == email).first()
+        if user and check_password_hash(user.hashed_password, password):
+            session['user_id'] = user.id
+            return redirect('/messages')
+        else:
+            return render_template('login.html', message="Неверный email или пароль")
+
     return render_template('login.html')
 
 
@@ -125,8 +125,6 @@ def register():
 
     return render_template('register.html')
 
-init_db()
-
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5050, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False)
