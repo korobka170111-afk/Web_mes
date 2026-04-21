@@ -9,6 +9,9 @@ from forms.user import RegisterForm
 from data import db_sessions
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import session
+import random
+import string
+
 
 db_sessions.global_init("db/blogs.db")
 db_sess = db_sessions.create_session()
@@ -18,10 +21,104 @@ app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 
 
 
+@app.route('/')
+@app.route('/home')
+def index():
+    db_sessions.global_init("db/blogs.db")
+    db_sess = db_sessions.create_session()
+    user = db_sess.query(User).first()
+    return render_template('index.html', user=user)
+
+
+def generate_code():
+    return ''.join(random.choices(string.digits, k=8))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        surname = request.form.get('surname')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        sex = request.form.get('sex')
+
+        if password != confirm_password:
+            return render_template('register.html', message="Пароли не совпадают")
+
+        if db_sess.query(User).filter(User.email == email).first():
+            return render_template('register.html', message="Такой пользователь уже есть")
+
+        user = User(
+            name=name,
+            surname=surname,
+            email=email,
+            sex=sex,
+            hashed_password=generate_password_hash(password)
+        )
+        user.connect_code = generate_code()
+
+        db_sess.add(user)
+        db_sess.commit()
+
+        session['user_id'] = user.id
+
+        return redirect('/code')
+
+    return render_template('register.html')
+
+@app.route('/code')
+def code():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user = db_sess.query(User).filter(User.id == session['user_id']).first()
+    if user.tablet_ip:
+        return redirect('/messages')
+
+    return render_template('code.html', code=user.connect_code)
+
+
+@app.route('/connect', methods=['GET'])
+def connect_tablet():
+    code = request.args.get('code')
+    tablet_ip = request.remote_addr
+
+    print(f"Получен код {code} от пользователя с айпи: {tablet_ip}")
+
+    user = db_sess.query(User).filter(User.connect_code == code).first()
+
+    if user:
+        user.tablet_ip = tablet_ip
+        db_sess.commit()
+        return f"Устройство подключёно к пользователю {user.name}", 200
+    else:
+        return "Неверный код", 404
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = db_sess.query(User).filter(User.email == email).first()
+        if user and check_password_hash(user.hashed_password, password):
+            session['user_id'] = user.id
+            return redirect('/code')
+        else:
+            return render_template('login.html', message="Неверный email или пароль")
+
+    return render_template('login.html')
+
+
 @app.route('/messages')
 def messages():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
     conn = sqlite3.connect('db/blogs.db')
-    messages = conn.execute('SELECT sender, text, time FROM messages').fetchall()
+    messages = conn.execute(
+        'SELECT sender, text, time FROM messages WHERE user_id = ? ORDER BY id DESC',(user_id,)).fetchall()
     conn.close()
     return render_template_string('''
 <!DOCTYPE html>
@@ -58,72 +155,25 @@ def messages():
 def add_message():
     sender = request.form.get('sender')
     text = request.form.get('text')
+    tablet_ip = request.remote_addr
+
+    user = db_sess.query(User).filter(User.tablet_ip == tablet_ip).first()
+    if not user:
+        print(f"Неизвестное устройство с IP: {tablet_ip}")
+        return 'OK', 200
 
     time_now = datetime.now().strftime('%H:%M')
 
     conn = sqlite3.connect('db/blogs.db')
-    conn.execute('INSERT INTO messages (sender, text, time) VALUES (?, ?, ?)',
-                 (sender, text, time_now))
+    conn.execute(
+        'INSERT INTO messages (sender, text, time, user_id) VALUES (?, ?, ?, ?)',
+        (sender, text, time_now, user.id)
+    )
     conn.commit()
     conn.close()
 
-    print(f"От: {sender} - {text}")
+    print(f"Пользователь {user.name}: {sender} -> {text}")
     return 'OK', 200
-
-@app.route('/')
-@app.route('/home')
-def index():
-    db_sessions.global_init("db/blogs.db")
-    db_sess = db_sessions.create_session()
-    user = db_sess.query(User).first()
-    return render_template('index.html', user=user)
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        user = db_sess.query(User).filter(User.email == email).first()
-        if user and check_password_hash(user.hashed_password, password):
-            session['user_id'] = user.id
-            return redirect('/messages')
-        else:
-            return render_template('login.html', message="Неверный email или пароль")
-
-    return render_template('login.html')
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        surname = request.form.get('surname')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        sex = request.form.get('sex')
-
-        if password != confirm_password:
-            return render_template('register.html', message="Пароли не совпадают")
-
-        if db_sess.query(User).filter(User.email == email).first():
-            return render_template('register.html', message="Такой пользователь уже есть")
-
-        user = User(
-            name=name,
-            surname=surname,
-            email=email,
-            sex=sex,
-            hashed_password=generate_password_hash(password)
-        )
-
-        db_sess.add(user)
-        db_sess.commit()
-
-        return redirect('/login')
-
-    return render_template('register.html')
 
 
 if __name__ == '__main__':

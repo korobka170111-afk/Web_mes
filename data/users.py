@@ -19,6 +19,8 @@ class User(SqlAlchemyBase):
     email = sqlalchemy.Column(sqlalchemy.String, unique=True)
     hashed_password = sqlalchemy.Column(sqlalchemy.String)
     modified_date = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
+    tablet_ip = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    connect_code = sqlalchemy.Column(sqlalchemy.String, nullable=True, unique=True)
 
 class Messages(SqlAlchemyBase):
     __tablename__ = 'messages'
@@ -28,6 +30,5 @@ class Messages(SqlAlchemyBase):
     sender = sqlalchemy.Column(sqlalchemy.String)
     text = sqlalchemy.Column(sqlalchemy.String)
     time = sqlalchemy.Column(sqlalchemy.DateTime, default=datetime.datetime.now)
-    user_id = sqlalchemy.Column(sqlalchemy.Integer,
-                                sqlalchemy.ForeignKey("users.id"))
+    user_id = sqlalchemy.Column(sqlalchemy.Integer, sqlalchemy.ForeignKey("users.id"), nullable=True)
 
