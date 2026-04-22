@@ -29,7 +29,6 @@ def index():
     user = db_sess.query(User).first()
     return render_template('index.html', user=user)
 
-
 def generate_code():
     return ''.join(random.choices(string.digits, k=8))
 
@@ -60,11 +59,9 @@ def register():
 
         db_sess.add(user)
         db_sess.commit()
-
         session['user_id'] = user.id
 
         return redirect('/code')
-
     return render_template('register.html')
 
 @app.route('/code')
@@ -83,7 +80,6 @@ def code():
 def connect_tablet():
     code = request.args.get('code')
     tablet_ip = request.remote_addr
-
     print(f"Получен код {code} от пользователя с айпи: {tablet_ip}")
 
     user = db_sess.query(User).filter(User.connect_code == code).first()
@@ -118,43 +114,17 @@ def messages():
     user_id = session['user_id']
     conn = sqlite3.connect('db/blogs.db')
     messages = conn.execute(
-        'SELECT sender, text, time FROM messages WHERE user_id = ? ORDER BY id DESC',(user_id,)).fetchall()
+        'SELECT sender, text, time, messenger_name FROM messages WHERE user_id = ? ORDER BY id DESC',(user_id,)).fetchall()
     conn.close()
-    return render_template_string('''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Сообщения из Макс</title>
-    <meta charset="utf-8">
-    <meta http-equiv="refresh" content="5">
-    <style>
-        body { font-family: Arial; margin: 20px; background: #f0f0f0; }
-        .message { background: white; margin: 10px 0; padding: 10px; border-radius: 8px; }
-        .sender { font-weight: bold; color: #007bff; }
-        .time { font-size: 12px; color: gray; }
-        .text { margin-top: 5px; }
-    </style>
-</head>
-<body>
-    <h1> Сообщения из Макс</h1>
-    <div id="messages">
-        {% for msg in messages %}
-        <div class="message">
-            <div class="sender">{{ msg[0] }}</div>
-            <div class="time">{{ msg[2] }}</div>
-            <div class="text">{{ msg[1] }}</div>
-        </div>
-        {% endfor %}
-    </div>
-</body>
-</html>
-''', messages=messages)
+
+    return render_template('chats.html', messages=messages)
 
 
 @app.route('/add', methods=['POST'])
 def add_message():
     sender = request.form.get('sender')
     text = request.form.get('text')
+    messenger_name = request.form.get('messenger_name')
     tablet_ip = request.remote_addr
 
     user = db_sess.query(User).filter(User.tablet_ip == tablet_ip).first()
@@ -166,13 +136,13 @@ def add_message():
 
     conn = sqlite3.connect('db/blogs.db')
     conn.execute(
-        'INSERT INTO messages (sender, text, time, user_id) VALUES (?, ?, ?, ?)',
-        (sender, text, time_now, user.id)
+        'INSERT INTO messages (sender, text, messenger_name, time, user_id) VALUES (?, ?, ?, ?, ?)',
+        (sender, text, messenger_name, time_now, user.id)
     )
     conn.commit()
     conn.close()
 
-    print(f"Пользователь {user.name}: {sender} -> {text}")
+    print(f"{messenger_name} Пользователь {user.name}: {sender} -> {text}")
     return 'OK', 200
 
 
