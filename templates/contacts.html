@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if selected %}{{ selected.display_name }}{% else %}Контакты{% endif %}{% endblock %}
+
+{% block body %}
+<style>
+    .contacts-shell { height: calc(100vh - 110px); }
+    .contact-list { height: 100%; overflow-y: auto; background: #fff; border-radius: 12px; }
+    .contact-row {
+        display: flex; gap: 12px; align-items: center; padding: 12px 14px;
+        border-bottom: 1px solid #eef0f3; text-decoration: none; color: inherit;
+        transition: background 0.1s;
+    }
+    .contact-row:hover { background: #f7f9fc; color: inherit; }
+    .contact-row.active { background: #e7f1ff; }
+    .contact-row .name { font-weight: 600; color: #1a2230; }
+    .contact-row .preview {
+        color: #6b7280; font-size: 13px; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+    }
+    .contact-row .time { font-size: 11px; color: #9ca3af; flex: 0 0 auto; }
+    .contact-row .badge-unread {
+        background: #ef4444; color: #fff; border-radius: 999px;
+        min-width: 20px; height: 20px; padding: 0 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 600; margin-top: 2px;
+    }
+    .contact-meta { flex: 1; min-width: 0; }
+    .feed { height: 100%; overflow-y: auto; background: #fff; border-radius: 12px; padding: 16px 20px; }
+    .feed-header {
+        display: flex; align-items: center; gap: 12px;
+        padding-bottom: 12px; border-bottom: 1px solid #eef0f3; margin-bottom: 12px;
+    }
+    .bubble-row { display: flex; flex-direction: column; margin-bottom: 12px; max-width: 80%; }
+    .bubble-row .source {
+        font-size: 11px; color: #6b7280; margin-bottom: 2px; padding-left: 4px;
+    }
+    .bubble {
+        background: #f1f3f5; padding: 8px 12px; border-radius: 14px 14px 14px 4px;
+        word-wrap: break-word; line-height: 1.35;
+    }
+    .bubble .text { color: #1a2230; }
+    .bubble .time { font-size: 10px; color: #9ca3af; margin-top: 2px; text-align: right; }
+    .bubble .truncated-note {
+        font-size: 11px; color: #b45309; background: #fef3c7;
+        border-radius: 6px; padding: 4px 8px; margin-top: 6px;
+        line-height: 1.3;
+    }
+    .empty-state { color: #9ca3af; text-align: center; margin-top: 80px; }
+
+    /* Тёмная тема */
+    [data-bs-theme="dark"] .contact-list { background: #1a1d24; }
+    [data-bs-theme="dark"] .contact-row { border-bottom: 1px solid #2a2f3a; }
+    [data-bs-theme="dark"] .contact-row:hover { background: #232831; }
+    [data-bs-theme="dark"] .contact-row.active { background: #1e3a5f; }
+    [data-bs-theme="dark"] .contact-row .name { color: #e5e7eb; }
+    [data-bs-theme="dark"] .contact-row .preview { color: #9ca3af; }
+    [data-bs-theme="dark"] .contact-row .time { color: #6b7280; }
+    [data-bs-theme="dark"] .feed { background: #1a1d24; }
+    [data-bs-theme="dark"] .feed-header { border-bottom-color: #2a2f3a; }
+    [data-bs-theme="dark"] .bubble { background: #2a2f3a; }
+    [data-bs-theme="dark"] .bubble .text { color: #e5e7eb; }
+    [data-bs-theme="dark"] .bubble .time { color: #6b7280; }
+    [data-bs-theme="dark"] .bubble-row .source { color: #9ca3af; }
+    [data-bs-theme="dark"] .bubble .truncated-note {
+        color: #fcd34d; background: rgba(245, 158, 11, 0.12);
+    }
+    [data-bs-theme="dark"] .empty-state { color: #6b7280; }
+</style>
+
+<div class="container-fluid contacts-shell">
+    <div class="row g-3 h-100">
+        <div class="col-md-4 h-100">
+            <div class="contact-list" id="contact-list"
+                 data-active-id="{{ selected.id if selected else '' }}">
+                {% if contacts %}
+                    {% for c in contacts %}
+                    <a href="/contacts/{{ c.id }}"
+                       class="contact-row {% if selected and selected.id == c.id %}active{% endif %}">
+                        <span class="avatar" style="background: {{ c.avatar_color }};">
+                            {{ c.initial }}
+                        </span>
+                        <div class="contact-meta">
+                            <div class="d-flex justify-content-between">
+                                <span class="name">{{ c.display_name }}</span>
+                                <span class="time">{{ c.last_time or '' }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="preview">{{ c.last_preview or 'Нет сообщений' }}</div>
+                                {% if c.unread_count and c.unread_count > 0 %}
+                                    <span class="badge-unread">{{ c.unread_count }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state p-4">
+                        Контактов пока нет. Пришлите первое уведомление с устройства.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-md-8 h-100">
+            <div class="feed" id="feed">
+                {% if selected %}
+                    <div class="feed-header">
+                        <span class="avatar" style="background: {{ selected.avatar_color }};">
+                            {{ selected.initial }}
+                        </span>
+                        <div>
+                            <div class="fw-semibold">{{ selected.display_name }}</div>
+                            <div class="text-muted small">
+                                {% if selected_handles %}
+                                    {{ selected_handles|join(' · ') }}
+                                {% else %}
+                                    нет личностей
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div id="messages-container">
+                        {% if messages %}
+                            {% for m in messages %}
+                            <div class="bubble-row">
+                                <span class="source">{{ m.messenger_name }} · {{ m.sender }}</span>
+                                <div class="bubble">
+                                    <div class="text">{{ m.text }}</div>
+                                    {% if m.text and m.text|length == 1024 %}
+                                    <div class="truncated-note">
+                                        ⚠ Сообщение обрезано Android до 1024 символов.
+                                        Откройте {{ m.messenger_name }}, чтобы прочесть целиком.
+                                    </div>
+                                    {% endif %}
+                                    <div class="time">{{ m.time }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">Нет сообщений.</div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        ← Выберите контакт слева, чтобы увидеть переписку.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Polling списка контактов слева — чтобы бэйджи "непрочитано", превью
+// и время появлялись без перезагрузки страницы.
+(function() {
+    const list = document.getElementById('contact-list');
+    if (!list) return;
+    const activeId = list.dataset.activeId || '';
+    let lastSig = '';
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function render(contacts) {
+        if (!contacts.length) {
+            list.innerHTML =
+                '<div class="empty-state p-4">' +
+                'Контактов пока нет. Пришлите первое уведомление с устройства.' +
+                '</div>';
+            return;
+        }
+        list.innerHTML = contacts.map(c => {
+            const isActive = String(c.id) === String(activeId);
+            const badge = (c.unread_count && c.unread_count > 0)
+                ? `<span class="badge-unread">${c.unread_count}</span>` : '';
+            return `<a href="/contacts/${c.id}"
+                       class="contact-row${isActive ? ' active' : ''}">
+                <span class="avatar" style="background: ${escapeHtml(c.avatar_color)};">
+                    ${escapeHtml(c.initial)}
+                </span>
+                <div class="contact-meta">
+                    <div class="d-flex justify-content-between">
+                        <span class="name">${escapeHtml(c.display_name)}</span>
+                        <span class="time">${escapeHtml(c.last_time || '')}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="preview">${escapeHtml(c.last_preview || 'Нет сообщений')}</div>
+                        ${badge}
+                    </div>
+                </div>
+            </a>`;
+        }).join('');
+    }
+
+    async function poll() {
+        try {
+            const r = await fetch('/contacts.json', {credentials: 'same-origin'});
+            if (!r.ok) return;
+            const data = await r.json();
+            const sig = JSON.stringify(data.contacts.map(
+                c => [c.id, c.last_time, c.last_preview, c.unread_count]));
+            if (sig !== lastSig) {
+                render(data.contacts);
+                lastSig = sig;
+            }
+        } catch (e) { /* network blip */ }
+    }
+
+    // Первый прогон сразу — чтобы lastSig инициализировался текущим состоянием.
+    poll();
+    setInterval(poll, 5000);
+})();
+</script>
+
+{% if selected %}
+<script>
+(function() {
+    const feed = document.getElementById('feed');
+    const container = document.getElementById('messages-container');
+    const url = '/contacts/{{ selected.id }}/messages.json';
+    let lastSig = '';
+
+    function isNearBottom() {
+        if (!feed) return true;
+        return feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80;
+    }
+
+    function scrollToBottom() {
+        if (feed) feed.scrollTop = feed.scrollHeight;
+    }
+
+    function render(messages) {
+        if (!messages.length) {
+            container.innerHTML = '<div class="empty-state">Нет сообщений.</div>';
+            return;
+        }
+        const html = messages.map(m => {
+            const truncated = (m.text || '').length === 1024
+                ? `<div class="truncated-note">
+                    ⚠ Сообщение обрезано Android до 1024 символов.
+                    Откройте ${escapeHtml(m.messenger_name)}, чтобы прочесть целиком.
+                  </div>`
+                : '';
+            return `<div class="bubble-row">
+                <span class="source">${escapeHtml(m.messenger_name)} · ${escapeHtml(m.sender)}</span>
+                <div class="bubble">
+                    <div class="text">${escapeHtml(m.text)}</div>
+                    ${truncated}
+                    <div class="time">${escapeHtml(m.time)}</div>
+                </div>
+            </div>`;
+        }).join('');
+        container.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    async function poll() {
+        try {
+            const r = await fetch(url, {credentials: 'same-origin'});
+            if (!r.ok) return;
+            const data = await r.json();
+            const sig = JSON.stringify(data.messages.map(m => m.id || (m.time + m.text)));
+            if (sig !== lastSig) {
+                const stickToBottom = isNearBottom();
+                render(data.messages);
+                lastSig = sig;
+                if (stickToBottom) scrollToBottom();
+            }
+        } catch (e) { /* network blip */ }
+    }
+
+    // Сразу прыгнуть в конец, чтобы пользователь видел свежие сообщения.
+    scrollToBottom();
+    setInterval(poll, 5000);
+})();
+</script>
+{% endif %}
+{% endblock %}
